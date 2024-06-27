@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gui SYSTEM "kpartgui.dtd">
+<gui name="text_highlight_plugin" library="text-highlight-plugin" version="23" translationDomain="text-highlight-plugin">
+  <Menu name="ktexteditor_popup" noMerge="1">
+    <Action name="text_highlight_menu"/>
+  </Menu>
+</gui>
+<!-- kate: space-indent on; indent-width 4; replace-tabs on; -->
