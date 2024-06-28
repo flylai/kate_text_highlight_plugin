@@ -18,6 +18,20 @@ void TextHighlightPluginView::onViewChanged(KTextEditor::View *view)
     if (view && view->focusProxy()) {
         view->focusProxy()->installEventFilter(this);
         connect(view, &KTextEditor::View::verticalScrollPositionChanged, this, &TextHighlightPluginView::onVerticalScrollPositionChanged);
+        //
+        // https://api.kde.org/frameworks/ktexteditor/html/classKTextEditor_1_1MovingRange.html
+        // Chapter `MovingRange Example`
+        //
+        connect(view->document(),
+                &KTextEditor::Document::aboutToInvalidateMovingInterfaceContent,
+                this,
+                &TextHighlightPluginView::clearMovingRanges,
+                Qt::UniqueConnection);
+        connect(view->document(),
+                &KTextEditor::Document::aboutToDeleteMovingInterfaceContent,
+                this,
+                &TextHighlightPluginView::clearMovingRanges,
+                Qt::UniqueConnection);
         onVerticalScrollPositionChanged();
     }
 
@@ -120,4 +134,9 @@ void TextHighlightPluginView::highlightMatch(const QString &str, KTextEditor::Ra
     }());
     movingRange->setAttribute(attr);
     m_movingRanges[m_activeView->document()][str].emplace_back(movingRange);
+}
+
+void TextHighlightPluginView::clearMovingRanges()
+{
+    m_movingRanges.clear();
 }

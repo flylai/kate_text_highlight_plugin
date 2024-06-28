@@ -45,6 +45,15 @@ class TextHighlightPluginView : public QObject, public KXMLGUIClient
 
 public:
     static QObject *createView(TextHighlightPlugin *plugin, KTextEditor::MainWindow *mainWindow);
+    ~TextHighlightPluginView()
+    {
+        disconnect(m_mainWindow, &KTextEditor::MainWindow::viewChanged, this, &TextHighlightPluginView::onViewChanged);
+        onViewChanged(nullptr);
+        m_stringHighlightData.clear();
+        clearMovingRanges();
+
+        m_mainWindow->guiFactory()->removeClient(this);
+    }
 
 private:
     TextHighlightPluginView(TextHighlightPlugin *plugin, KTextEditor::MainWindow *mainWindow)
@@ -134,6 +143,8 @@ private:
     void highlight(bool /*unused*/);
     void highlightAllMatches(KTextEditor::Range range = KTextEditor::Range::invalid());
     void highlightMatch(const QString &str, KTextEditor::Range range, QColor color);
+    //
+    void clearMovingRanges();
     //
     QObject *m_plugin{};
     KTextEditor::MainWindow *m_mainWindow{};
