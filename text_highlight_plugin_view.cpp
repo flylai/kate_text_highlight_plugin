@@ -8,7 +8,8 @@ QObject *TextHighlightPluginView::createView(TextHighlightPlugin *plugin, KTextE
 
 void TextHighlightPluginView::onViewChanged(KTextEditor::View *view)
 {
-    auto *oldView = m_activeView;
+    auto oldView = m_activeView;
+
     if (oldView == view) {
         return;
     }

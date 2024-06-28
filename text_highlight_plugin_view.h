@@ -132,9 +132,7 @@ private:
     QIcon createColorIcon(const QColor &color, int size);
 
     void highlight(bool /*unused*/);
-
     void highlightAllMatches(KTextEditor::Range range = KTextEditor::Range::invalid());
-
     void highlightMatch(const QString &str, KTextEditor::Range range, QColor color);
     //
     QObject *m_plugin{};
@@ -144,7 +142,7 @@ private:
     QPointer<QAction> m_highlightAllMatches;
     QPointer<QAction> m_markColor;
     //
-    KTextEditor::View *m_activeView{};
+    QPointer<KTextEditor::View> m_activeView;
     //
     struct HighlightData {
         QColor color;
