@@ -1,31 +1,29 @@
 #pragma once
 
-#include "kactioncollection.h"
 #include "logger.h"
 #include "text_highlight_plugin.h"
 
-#include "ktexteditor_utils.h"
+#include <KActionCollection>
 #include <KActionMenu>
 #include <KLocalizedString>
+#include <KTextEditor/Document>
+#include <KTextEditor/MainWindow>
+#include <KTextEditor/MovingRange>
+#include <KTextEditor/Range>
+#include <KTextEditor/View>
 #include <KXMLGUIClient>
+#include <KXMLGUIFactory>
 #include <QAction>
 #include <QColor>
 #include <QIcon>
+#include <QKeySequence>
 #include <QMap>
 #include <QMenu>
 #include <QObject>
 #include <QPainter>
 #include <QPixmap>
 #include <QPointer>
-#include <ktexteditor/document.h>
-#include <ktexteditor/mainwindow.h>
-#include <ktexteditor/movingrange.h>
-#include <ktexteditor/range.h>
-#include <ktexteditor/view.h>
-#include <kxmlguifactory.h>
 #include <memory>
-#include <qkeysequence.h>
-#include <qpointer.h>
 #include <unordered_map>
 #include <vector>
 
@@ -156,6 +154,12 @@ private:
     QPointer<KTextEditor::View> m_activeView;
     //
     struct HighlightData {
+        explicit HighlightData(QColor c, bool ham, bool cs)
+            : color(c)
+            , highlightAllMatches(ham)
+            , caseSensitive(cs)
+        {
+        }
         QColor color;
         bool highlightAllMatches{};
         bool caseSensitive{};
