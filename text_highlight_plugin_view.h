@@ -154,7 +154,7 @@ private:
     QPointer<KTextEditor::View> m_activeView;
     //
     struct HighlightData {
-        explicit HighlightData(QColor c, bool ham, bool cs)
+        explicit constexpr HighlightData(QColor c, bool ham, bool cs)
             : color(c)
             , highlightAllMatches(ham)
             , caseSensitive(cs)
