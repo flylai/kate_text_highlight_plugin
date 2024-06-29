@@ -1,10 +1,10 @@
 #pragma once
 
-#include "ktexteditor_utils.h"
 #include <ktexteditor/mainwindow.h>
 #include <qcontainerfwd.h>
 #include <qobject.h>
 #include <qstringliteral.h>
+#include <QVariantMap>
 
 class Logger
 {
@@ -36,8 +36,9 @@ public:
         QVariantMap genericMessage;
         genericMessage.insert(QStringLiteral("category"), QStringLiteral("Text Highlight"));
         genericMessage.insert(QStringLiteral("text"), msg);
-        genericMessage.insert(QStringLiteral("type"), QStringLiteral("Warning"));
+        genericMessage.insert(QStringLiteral("type"), typeStr);
+        genericMessage.insert(QStringLiteral("type"), QStringLiteral("yourmessagetoken"));
 
-        Utils::showMessage(genericMessage, mainWindow);
+        mainWindow->showMessage(genericMessage);
     }
 };

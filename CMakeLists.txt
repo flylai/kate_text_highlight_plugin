@@ -9,6 +9,7 @@ list(APPEND CMAKE_MODULE_PATH ${ECM_MODULE_PATH})
 
 include(KDEInstallDirs)
 include(KDECMakeSettings)
+include(KDECompilerSettings NO_POLICY_SCOPE)
 
 find_package(Qt${QT_MAJOR_VERSION}Widgets CONFIG REQUIRED)
 
@@ -30,13 +31,8 @@ else ()
             INSTALL_NAMESPACE "ktexteditor")
 endif ()
 
-target_link_libraries(
-        ${PROJECT}
-        PRIVATE
-        kateprivate
-)
-
 include(ECMQtDeclareLoggingCategory)
+include(ECMOptionalAddSubdirectory)
 
 target_sources(
         ${PROJECT}
@@ -48,7 +44,7 @@ target_sources(
         plugin.qrc
 )
 
-# add_compile_options(-O3 -Wall -Wextra -Wpedantic -Wno-dev)
+add_compile_options(-O3 -Wall -Wextra -Wpedantic -Wno-dev)
 
 # This makes the plugin translatable
 target_compile_definitions(${PROJECT} PRIVATE TRANSLATION_DOMAIN="${PROJECT}")
