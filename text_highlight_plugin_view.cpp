@@ -1,5 +1,6 @@
 #include "text_highlight_plugin_view.h"
 #include "logger.h"
+#include <algorithm>
 
 QObject *TextHighlightPluginView::createView(TextHighlightPlugin *plugin, KTextEditor::MainWindow *mainWindow)
 {
@@ -73,7 +74,31 @@ void TextHighlightPluginView::highlight(bool /*unused*/)
     if (selectionText.isEmpty()) {
         return;
     }
-    m_stringHighlightData.insert({selectionText, HighlightData(color, m_highlightAllMatches->isChecked(), m_caseSensitive->isChecked())});
+    QString lowerSelectionText = selectionText.toLower();
+    if (!m_caseSensitive->isChecked()) {
+        std::erase_if(m_stringHighlightData, [&lowerSelectionText](const auto &pair) {
+            return pair.first.toLower() == lowerSelectionText;
+        });
+        std::erase_if(m_movingRanges[m_activeView->document()], [&lowerSelectionText](const auto &pair) {
+            return pair.first.toLower() == lowerSelectionText;
+        });
+    } else {
+        std::for_each(m_stringHighlightData.begin(), m_stringHighlightData.end(), [&lowerSelectionText](auto &pair) {
+            if (pair.first.toLower() == lowerSelectionText) {
+                pair.second.caseSensitive = true;
+            }
+        });
+        m_stringHighlightData.erase(selectionText);
+        m_movingRanges[m_activeView->document()].erase(selectionText);
+    }
+    auto it = m_stringHighlightData.find(selectionText);
+    if (it != m_stringHighlightData.end()) {
+        it->second.color = color;
+        it->second.highlightAllMatches = m_highlightAllMatches->isChecked();
+        it->second.caseSensitive = m_caseSensitive->isChecked();
+    } else {
+        m_stringHighlightData.insert({selectionText, HighlightData(color, m_highlightAllMatches->isChecked(), m_caseSensitive->isChecked())});
+    }
     if (m_highlightAllMatches->isChecked()) {
         highlightAllMatches();
     } else {
@@ -113,7 +138,7 @@ void TextHighlightPluginView::highlightAllMatches(KTextEditor::Range range)
         for (const auto &[str, highlightData] : m_stringHighlightData) {
             QString content = doc->line(line);
             for (qsizetype i = 0;;) {
-                i = content.indexOf(str, i, highlightData.caseSensitive ? Qt::CaseInsensitive : Qt::CaseInsensitive);
+                i = content.indexOf(str, i, highlightData.caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive);
                 if (i == -1) {
                     // Not found
                     break;
