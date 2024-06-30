@@ -69,33 +69,21 @@ private:
             m_rootAction->setText(i18n("Text Highlight"));
 
             {
-                // checkbox, Highlight All Matches
-                m_highlightAllMatches = actionCollection()->add<QAction>(QStringLiteral("text_highlight_highlight_all_matches"));
-                m_highlightAllMatches->setText(i18n("Highlight All Matches"));
-                m_highlightAllMatches->setCheckable(true);
-                m_highlightAllMatches->setChecked(true);
-
-                // checkbox, Case Sensitive Match
-                m_caseSensitive = actionCollection()->add<QAction>(QStringLiteral("text_highlight_case_sensitive"));
-                m_caseSensitive->setText(i18n("Case Sensitive Match"));
-                m_caseSensitive->setCheckable(true);
-                m_caseSensitive->setChecked(false);
-
-                rootMenu->addAction(m_highlightAllMatches);
-                rootMenu->addAction(m_caseSensitive);
-
-                connect(m_highlightAllMatches, &QAction::changed, this, [this]() {
-                    m_caseSensitive->setVisible(m_highlightAllMatches->isChecked());
-                });
-            }
-            rootMenu->addSeparator();
-
-            {
                 auto *colorMenu = new QMenu;
                 m_markColor = actionCollection()->add<QAction>(QStringLiteral("text_highlight_color_menu"));
                 m_markColor->setText(i18n("Mark With ..."));
                 m_markColor->setMenu(colorMenu);
 
+                for (const auto &color : COLOR_SET) {
+                    auto name = QString::fromUtf8(color);
+                    auto *action = actionCollection()->add<QAction>(name);
+
+                    action->setIcon(createColorIcon(color, 16));
+                    action->setIconText(name);
+                    colorMenu->addAction(action);
+                    connect(action, &QAction::triggered, this, &TextHighlightPluginView::highlight);
+                }
+                rootMenu->addAction(m_markColor);
                 {
                     // add clear action
                     auto *clear_action = actionCollection()->add<QAction>(QStringLiteral("text_highlight_clear"));
@@ -112,17 +100,27 @@ private:
                         m_stringHighlightData.erase(selectionText);
                     });
                 }
+            }
+            rootMenu->addSeparator();
+            {
+                // checkbox, Highlight All Matches
+                m_highlightAllMatches = actionCollection()->add<QAction>(QStringLiteral("text_highlight_highlight_all_matches"));
+                m_highlightAllMatches->setText(i18n("Highlight All Matches"));
+                m_highlightAllMatches->setCheckable(true);
+                m_highlightAllMatches->setChecked(true);
 
-                for (const auto &color : COLOR_SET) {
-                    auto name = QString::fromUtf8(color);
-                    auto *action = actionCollection()->add<QAction>(name);
+                // checkbox, Case Sensitive Match
+                m_caseSensitive = actionCollection()->add<QAction>(QStringLiteral("text_highlight_case_sensitive"));
+                m_caseSensitive->setText(i18n("Case Sensitive Match"));
+                m_caseSensitive->setCheckable(true);
+                m_caseSensitive->setChecked(true);
 
-                    action->setIcon(createColorIcon(color, 16));
-                    action->setIconText(name);
-                    colorMenu->addAction(action);
-                    connect(action, &QAction::triggered, this, &TextHighlightPluginView::highlight);
-                }
-                rootMenu->addAction(m_markColor);
+                rootMenu->addAction(m_highlightAllMatches);
+                rootMenu->addAction(m_caseSensitive);
+
+                connect(m_highlightAllMatches, &QAction::changed, this, [this]() {
+                    m_caseSensitive->setVisible(m_highlightAllMatches->isChecked());
+                });
             }
         }
 
