@@ -70,8 +70,10 @@ void TextHighlightPluginView::highlight(bool /*unused*/)
     auto *action = qobject_cast<QAction *>(sender());
     auto color = QColor(action->iconText());
     auto selectionText = m_mainWindow->activeView()->selectionText();
+    if (selectionText.isEmpty()) {
+        return;
+    }
     m_stringHighlightData.insert({selectionText, HighlightData(color, m_highlightAllMatches->isChecked(), m_caseSensitive->isChecked())});
-
     if (m_highlightAllMatches->isChecked()) {
         highlightAllMatches();
     } else {
