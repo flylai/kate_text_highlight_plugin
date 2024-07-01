@@ -1,23 +1,50 @@
 name: Kate Text Highlight Plugin Build
 
-on: [push, release, workflow_dispatch]
+on: 
+  push:
+  release:
+    types: published
+  workflow_dispatch:
 
-
-jobs: 
+jobs:
   check_commit_msg:
-      runs-on: ubuntu-latest
-      outputs:
-        commit_message: ${{ steps.get_message.outputs.message }}
-      steps:
-        - uses: actions/checkout@v4
-        - name: Get commit message
-          id: get_message
-          run: |
-            echo "::set-output name=message::$(git log --format=%B -n 1 ${{ github.event.after }} | tr '\n' ' ')"
-            echo "message=\"$(git log --format=%B -n 1 ${{ github.event.after }} | tr '\n' ' ')\"" >> $GITHUB_ENV
+    runs-on: ubuntu-latest
+    outputs:
+      commit_message: ${{ steps.get_message.outputs.message }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get commit message
+        id: get_message
+        run: |
+          echo "::set-output name=message::$(git log --format=%B -n 1 ${{ github.event.after }} | tr '\n' ' ')"
+          echo "message=\"$(git log --format=%B -n 1 ${{ github.event.after }} | tr '\n' ' ')\"" >> $GITHUB_ENV
 
   build:
+    strategy:
+      matrix:
+        config:
+          # - {
+          #     qt_major_version: 5,
+          #     qt_version: "5.15.2",
+          #     arch: "gcc_64",
+          #     qt_modules: "qtcharts qtdatavis3d qtlottie qtnetworkauth qtpurchasing qtquick3d qtquicktimeline qtscript qtvirtualkeyboard qtwaylandcompositor qtwebengine qtwebglplugin",
+          #     ecm_branch: "kf5",
+          #   }
+          - {
+              qt_major_version: 6,
+              qt_version: "6.7.0",
+              arch: "linux_gcc_64",
+              qt_modules: "qt3d qtcharts qtconnectivity qtdatavis3d qtgraphs qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3dphysics qtquickeffectmaker qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtspeech qtvirtualkeyboard qtwebchannel qtwebengine qtwebsockets qtwebview debug_info qt5compat qtquick3d qtquicktimeline qtshadertools qtwaylandcompositor",
+              ecm_branch: "master",
+            }
+
     runs-on: ubuntu-latest
+    env:
+      QT_MAJOR_VERSION: ${{ matrix.config.qt_major_version }}
+      QT_VERSION: ${{ matrix.config.qt_version }}
+      QT_MODULES: ${{ matrix.config.qt_modules }}
+      AQT_ARCH: ${{ matrix.config.arch }}
+      ECM_BRANCH: ${{ matrix.config.ecm_branch }}
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
@@ -37,17 +64,17 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          aqtversion: '==3.1.*'
-          version: '6.7.0'
-          host: 'linux'
-          target: 'desktop'
-          arch: 'linux_gcc_64'
-          modules: 'qt3d qtcharts qtconnectivity qtdatavis3d qtgraphs qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3dphysics qtquickeffectmaker qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtspeech qtvirtualkeyboard qtwebchannel qtwebengine qtwebsockets qtwebview debug_info qt5compat qtquick3d qtquicktimeline qtshadertools qtwaylandcompositor'
-      - name: Build KDE Framework 6
+          aqtversion: "==3.1.*"
+          version: ${{ env.QT_VERSION }}
+          host: "linux"
+          target: "desktop"
+          arch: ${{ env.AQT_ARCH }}
+          modules: ${{ env.QT_MODULES }}
+      - name: Build KDE Framework
         run: |
           mkdir build
           cd build
-          git clone https://invent.kde.org/frameworks/extra-cmake-modules.git
+          git clone https://invent.kde.org/frameworks/extra-cmake-modules.git -b ${{ env.ECM_BRANCH }}
           cd extra-cmake-modules
           mkdir build && cd build && cmake .. && cmake --build . && sudo cmake --install .
           cd ../../
@@ -55,11 +82,11 @@ jobs:
           cd kdesrc-build
           # env
           export PATH=$QT_ROOT_DIR:`pwd`:$PATH
-          export QT_MAJOR_VERSION=6
+          export QT_MAJOR_VERSION=${{ env.QT_MAJOR_VERSION }}
           export QTDIR=$QT_ROOT_DIR
           # solve dependencies
           sudo apt build-dep wayland kcodecs karchive kguiaddons kdoctools knotifications kwindowsystem polkit-qt-1 kjobwidgets solid kio kparts ktexteditor -y
-          # build kf6
+          # build kf
           kdesrc-build --initial-setup
           kdesrc-build --metadata-only
           kdesrc-build --pretend
@@ -71,7 +98,7 @@ jobs:
         run: |
           cd build
           cmake .. \
-            -DQT_MAJOR_VERSION=6 \
+            -DQT_MAJOR_VERSION=${{ env.QT_MAJOR_VERSION }} \
             -DCMAKE_PREFIX_PATH="$HOME/kde/usr/lib/x86_64-linux-gnu/cmake/" \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build .
@@ -80,13 +107,12 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: text-highlight-plugin-${{ github.sha }}.so
-          path: build/bin/kf6/ktexteditor/text-highlight-plugin.so
+          path: build/bin/kf${{ env.QT_MAJOR_VERSION }}/ktexteditor/text-highlight-plugin.so
       - name: Upload Artifact to GitHub release
         uses: svenstaro/upload-release-action@v2
         if: github.event_name == 'release'
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file_glob: true
           file: text-highlight-plugin-${{ github.sha }}.so
           tag: ${{ github.ref }}
           overwrite: true
