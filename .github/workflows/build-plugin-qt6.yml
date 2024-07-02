@@ -2,6 +2,8 @@ name: Kate Text Highlight Plugin Build
 
 on: 
   push:
+    branches:
+      - master
   release:
     types: published
   workflow_dispatch:
@@ -104,7 +106,7 @@ jobs:
           cmake --build .
           cd ..
       - name: Uploading Artifact
-        uses: actions/upload-artifact@master
+        uses: actions/upload-artifact@v4
         with:
           name: text-highlight-plugin-${{ github.sha }}.so
           path: build/bin/kf${{ env.QT_MAJOR_VERSION }}/ktexteditor/text-highlight-plugin.so
@@ -113,6 +115,6 @@ jobs:
         if: github.event_name == 'release'
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: text-highlight-plugin-${{ github.sha }}.so
+          file: build/bin/kf${{ env.QT_MAJOR_VERSION }}/ktexteditor/text-highlight-plugin.so
           tag: ${{ github.ref }}
           overwrite: true
