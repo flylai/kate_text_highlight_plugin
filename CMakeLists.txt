@@ -3,6 +3,7 @@ set(PROJECT text-highlight-plugin)
 project(${PROJECT} VERSION 1.0)
 
 set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(KF_DEP_VERSION "${QT_MAJOR_VERSION}")
 find_package(ECM ${KF_DEP_VERSION} QUIET REQUIRED NO_MODULE)
@@ -17,43 +18,58 @@ find_package(Qt${QT_MAJOR_VERSION}Widgets CONFIG REQUIRED)
 
 find_package(KF${QT_MAJOR_VERSION}TextEditor ${KF_DEP_VERSION} QUIET REQUIRED)
 
-find_package(KF${QT_MAJOR_VERSION}
-        REQUIRED COMPONENTS
-        CoreAddons # Core addons on top of QtCore
-        I18n # For localization
-        TextEditor # The editor component
+find_package(
+  KF${QT_MAJOR_VERSION} REQUIRED
+  COMPONENTS CoreAddons # Core addons on top of QtCore
+             I18n # For localization
+             TextEditor # The editor component
 )
 
 # This line defines the actual target
-if (QT_MAJOR_VERSION EQUAL 6)
-    kcoreaddons_add_plugin(${PROJECT}
-            INSTALL_NAMESPACE "kf6/ktexteditor")
-else ()
-    kcoreaddons_add_plugin(${PROJECT}
-            INSTALL_NAMESPACE "ktexteditor")
-endif ()
+if(QT_MAJOR_VERSION EQUAL 6)
+  kcoreaddons_add_plugin(${PROJECT} INSTALL_NAMESPACE "kf6/ktexteditor")
+else()
+  kcoreaddons_add_plugin(${PROJECT} INSTALL_NAMESPACE "ktexteditor")
+endif()
 
 include(ECMQtDeclareLoggingCategory)
 include(ECMOptionalAddSubdirectory)
 
 target_sources(
-        ${PROJECT}
-        PRIVATE
-        text_highlight_plugin.cpp
-        text_highlight_plugin_view.cpp
-        text_highlight_plugin.json
+  ${PROJECT} PRIVATE text_highlight_plugin.cpp text_highlight_plugin_view.cpp
+                     text_highlight_plugin.json plugin.qrc)
 
-        plugin.qrc
-)
-
-add_compile_options(-O3 -Wall -Wextra -Wpedantic -Wno-dev)
+add_compile_options(
+  -O3
+  -Wall
+  -Wextra
+  -Wpedantic
+  -Wno-dev
+  -Wformat
+  -Wformat=2
+  -Wconversion
+  -Wimplicit-fallthrough
+  -Werror=format-security
+  -U_FORTIFY_SOURCE
+  -D_FORTIFY_SOURCE=3
+  -D_GLIBCXX_ASSERTIONS
+  -fstrict-flex-arrays=3
+  -fstack-clash-protection
+  -fstack-protector-strong
+  -Wl,-z,nodlopen
+  -Wl,-z,noexecstack
+  -Wl,-z,relro
+  -Wl,-z,now
+  -Wl,--as-needed
+  -Wl,--no-copy-dt-needed-entries)
 
 # This makes the plugin translatable
 target_compile_definitions(${PROJECT} PRIVATE TRANSLATION_DOMAIN="${PROJECT}")
 
-target_link_libraries(${PROJECT}
-        PRIVATE
-        KF${QT_MAJOR_VERSION}::CoreAddons KF${QT_MAJOR_VERSION}::I18n KF${QT_MAJOR_VERSION}::TextEditor
-)
+target_link_libraries(
+  ${PROJECT}
+  PRIVATE KF${QT_MAJOR_VERSION}::CoreAddons KF${QT_MAJOR_VERSION}::I18n
+          KF${QT_MAJOR_VERSION}::TextEditor)
 
-feature_summary(WHAT ALL INCLUDE_QUIET_PACKAGES FATAL_ON_MISSING_REQUIRED_PACKAGES)
+feature_summary(WHAT ALL INCLUDE_QUIET_PACKAGES
+                         FATAL_ON_MISSING_REQUIRED_PACKAGES)
