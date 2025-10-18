@@ -1,6 +1,7 @@
 #include "text_highlight_plugin_view.h"
-#include "logger.h"
-#include <algorithm>
+#include <QChar>
+#include <QObject>
+#include <QStringLiteral>
 
 QObject *TextHighlightPluginView::createView(TextHighlightPlugin *plugin, KTextEditor::MainWindow *mainWindow)
 {
@@ -20,7 +21,7 @@ void TextHighlightPluginView::onViewChanged(KTextEditor::View *view)
         view->focusProxy()->installEventFilter(this);
         connect(view, &KTextEditor::View::verticalScrollPositionChanged, this, &TextHighlightPluginView::onVerticalScrollPositionChanged);
         //
-        // https://api.kde.org/frameworks/ktexteditor/html/classKTextEditor_1_1MovingRange.html
+        // https://api.kde.org/ktexteditor-movingrange.html#movingrange-example
         // Chapter `MovingRange Example`
         //
         connect(view->document(),
@@ -28,11 +29,16 @@ void TextHighlightPluginView::onViewChanged(KTextEditor::View *view)
                 this,
                 &TextHighlightPluginView::clearMovingRanges,
                 Qt::UniqueConnection);
+#if KTEXTEDITOR_VERSION < QT_VERSION_CHECK(6, 9, 0)
         connect(view->document(),
                 &KTextEditor::Document::aboutToDeleteMovingInterfaceContent,
                 this,
                 &TextHighlightPluginView::clearMovingRanges,
                 Qt::UniqueConnection);
+#endif // KTEXTEDITOR_VERSION < QT_VERSION_CHECK(6, 9, 0)
+        connect(view->document(), &KTextEditor::Document::textChanged, this, &TextHighlightPluginView::onTextChanged);
+        connect(view->document(), &KTextEditor::Document::aboutToClose, this, &TextHighlightPluginView::onDocumentClosed);
+        //
         onVerticalScrollPositionChanged();
     }
 
@@ -44,14 +50,18 @@ void TextHighlightPluginView::onViewChanged(KTextEditor::View *view)
 
 void TextHighlightPluginView::onVerticalScrollPositionChanged()
 {
-    if (m_activeView && !m_stringHighlightData.empty()) {
-        for (const auto &[str, data] : m_stringHighlightData) {
-            if (!data.highlightAllMatches) {
-                continue;
-            }
-            highlightAllMatches();
-        }
-    }
+    highlightCurrentViewport();
+}
+
+void TextHighlightPluginView::onTextChanged(KTextEditor::Document * /*unused*/)
+{
+    highlightCurrentViewport();
+}
+
+void TextHighlightPluginView::onDocumentClosed(KTextEditor::Document *doc)
+{
+    m_documentHighlightData.erase(doc);
+    m_documentMovingRanges.erase(doc);
 }
 
 QIcon TextHighlightPluginView::createColorIcon(const QColor &color, int size)
@@ -66,91 +76,77 @@ QIcon TextHighlightPluginView::createColorIcon(const QColor &color, int size)
     return {pixmap};
 }
 
-void TextHighlightPluginView::highlight(bool /*unused*/)
+void TextHighlightPluginView::onApplyHighlightColor(bool /*unused*/)
 {
-    auto *action = qobject_cast<QAction *>(sender());
-    auto color = QColor(action->iconText());
-    auto selectionText = m_mainWindow->activeView()->selectionText();
-    if (selectionText.isEmpty()) {
+    auto selectionText = m_activeView->selectionText();
+    if (selectionText.isEmpty() || selectionText.contains(QLatin1Char('\n'))) {
         return;
     }
-    QString lowerSelectionText = selectionText.toLower();
-    if (!m_caseSensitive->isChecked()) {
-        std::erase_if(m_stringHighlightData, [&lowerSelectionText](const auto &pair) {
-            return pair.first.toLower() == lowerSelectionText;
-        });
-        std::erase_if(m_movingRanges[m_activeView->document()], [&lowerSelectionText](const auto &pair) {
-            return pair.first.toLower() == lowerSelectionText;
-        });
-    } else {
-        std::for_each(m_stringHighlightData.begin(), m_stringHighlightData.end(), [&lowerSelectionText](auto &pair) {
-            if (pair.first.toLower() == lowerSelectionText) {
-                pair.second.caseSensitive = true;
-            }
-        });
-        m_stringHighlightData.erase(selectionText);
-        m_movingRanges[m_activeView->document()].erase(selectionText);
-    }
-    auto it = m_stringHighlightData.find(selectionText);
-    if (it != m_stringHighlightData.end()) {
-        it->second.color = color;
-        it->second.highlightAllMatches = m_highlightAllMatches->isChecked();
-        it->second.caseSensitive = m_caseSensitive->isChecked();
-    } else {
-        m_stringHighlightData.insert({selectionText, HighlightData(color, m_highlightAllMatches->isChecked(), m_caseSensitive->isChecked())});
-    }
-    if (m_highlightAllMatches->isChecked()) {
-        highlightAllMatches();
-    } else {
-        highlightMatch(selectionText, m_mainWindow->activeView()->selectionRange(), color);
+
+    auto *currentDocument = m_activeView->document();
+    auto *action = qobject_cast<QAction *>(sender());
+
+    auto &currentDocumentHighlightData = m_documentHighlightData[currentDocument];
+    auto &currentDocumentMovingRanges = m_documentMovingRanges[currentDocument];
+
+    const auto colorStr = action->iconText();
+    if (colorStr == QStringLiteral("Clear")) {
+        currentDocumentHighlightData.erase(selectionText);
+        currentDocumentMovingRanges.erase(selectionText);
+        return;
     }
 
-    Logger::Log(Logger::INFO, selectionText, m_mainWindow);
+    auto color = QColor(colorStr);
+    currentDocumentHighlightData[selectionText] = color;
+    currentDocumentMovingRanges[selectionText].clear();
+
+    highlightCurrentViewport();
 }
 
-void TextHighlightPluginView::highlightAllMatches(KTextEditor::Range range)
+void TextHighlightPluginView::highlightCurrentViewport(KTextEditor::Range range)
 {
     if (!m_mainWindow || !m_mainWindow->activeView()) {
         return;
     }
     auto lineRange = range.toLineRange();
-    auto *doc = m_activeView->document();
     const int startLine = lineRange.isValid() ? lineRange.start() : m_activeView->firstDisplayedLine();
     const int endLine = lineRange.isValid() ? lineRange.end() : m_activeView->lastDisplayedLine();
 
-    auto &strs = m_movingRanges[doc];
-    if (range.isValid()) {
-        for (auto &[_, v] : strs) {
-            v.erase(std::remove_if(v.begin(),
-                                   v.end(),
-                                   [lineRange](const std::unique_ptr<KTextEditor::MovingRange> &r) {
-                                       return lineRange.overlapsLine(r->start().line());
-                                   }),
-                    v.end());
-        }
-    } else {
-        for (auto &[_, v] : strs) {
-            v.clear();
-        }
-    }
+    m_documentMovingRanges[m_activeView->document()].clear();
 
     for (int line = startLine; line < endLine; line++) {
-        for (const auto &[str, highlightData] : m_stringHighlightData) {
-            QString content = doc->line(line);
-            for (qsizetype i = 0;;) {
-                i = content.indexOf(str, i, highlightData.caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive);
-                if (i == -1) {
-                    // Not found
-                    break;
-                }
-                highlightMatch(str, KTextEditor::Range(line, i, line, i + str.size()), highlightData.color);
-                i += str.size();
-            }
-        }
+        highlightLine(line);
     }
 }
 
-void TextHighlightPluginView::highlightMatch(const QString &str, KTextEditor::Range range, QColor color)
+void TextHighlightPluginView::highlightLine(int line)
+{
+    if (m_activeView == nullptr) {
+        return;
+    }
+    QString content = m_activeView->document()->line(line);
+
+    auto findAndHighlight = [this, line, &content](const QString &str, const QColor &color) {
+        for (qsizetype i = 0;;) {
+            i = content.indexOf(str, i);
+            if (i == -1) {
+                // Not found
+                break;
+            }
+            highlightMatched(str, KTextEditor::Range(line, i, line, i + str.size()), color);
+            i += str.size();
+        }
+    };
+    if (!m_activeView || !m_documentHighlightData.contains(m_activeView->document())) {
+        return;
+    }
+    const auto &highlightData = m_documentHighlightData[m_activeView->document()];
+    for (const auto &[str, color] : highlightData) {
+        findAndHighlight(str, color);
+    }
+}
+
+void TextHighlightPluginView::highlightMatched(const QString &str, KTextEditor::Range range, QColor color)
 {
     KTextEditor::MovingRange *movingRange = m_activeView->document()->newMovingRange(range);
     const KTextEditor::Attribute::Ptr attr([color] {
@@ -160,10 +156,10 @@ void TextHighlightPluginView::highlightMatch(const QString &str, KTextEditor::Ra
         return attr;
     }());
     movingRange->setAttribute(attr);
-    m_movingRanges[m_activeView->document()][str].emplace_back(movingRange);
+    m_documentMovingRanges[m_activeView->document()][str].emplace_back(movingRange);
 }
 
-void TextHighlightPluginView::clearMovingRanges()
+void TextHighlightPluginView::clearMovingRanges(KTextEditor::Document *doc)
 {
-    m_movingRanges.clear();
+    m_documentMovingRanges[doc].clear();
 }
