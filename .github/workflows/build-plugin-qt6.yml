@@ -1,6 +1,6 @@
 name: Kate Text Highlight Plugin Build
 
-on: 
+on:
   push:
     branches:
       - master
@@ -32,76 +32,29 @@ jobs:
           #     qt_modules: "qtcharts qtdatavis3d qtlottie qtnetworkauth qtpurchasing qtquick3d qtquicktimeline qtscript qtvirtualkeyboard qtwaylandcompositor qtwebengine qtwebglplugin",
           #     ecm_branch: "kf5",
           #   }
-          - {
-              qt_major_version: 6,
-              qt_version: "6.7.0",
-              arch: "linux_gcc_64",
-              qt_modules: "qt3d qtcharts qtconnectivity qtdatavis3d qtgraphs qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3dphysics qtquickeffectmaker qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtspeech qtvirtualkeyboard qtwebchannel qtwebengine qtwebsockets qtwebview debug_info qt5compat qtquick3d qtquicktimeline qtshadertools qtwaylandcompositor",
-              ecm_branch: "master",
-            }
+          - { qt_major_version: 6 }
 
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:base
+      options: --user root --privileged
     env:
       QT_MAJOR_VERSION: ${{ matrix.config.qt_major_version }}
-      QT_VERSION: ${{ matrix.config.qt_version }}
-      QT_MODULES: ${{ matrix.config.qt_modules }}
-      AQT_ARCH: ${{ matrix.config.arch }}
-      ECM_BRANCH: ${{ matrix.config.ecm_branch }}
     steps:
       - name: Checkout Sources
         uses: actions/checkout@v4
+
       - name: Install build dependencies
         run: |
-          sudo sed -i 's/^#\s*deb-src/deb-src/' /etc/apt/sources.list # add src repos
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            ninja-build \
-            git \
-            python3 pip \
-            libzstd-dev # karchive
-          pip install meson
+          pacman -Syyu --noconfirm
+          pacman -S git curl python base-devel wget cmake ninja kate extra-cmake-modules --noconfirm
 
-      - name: Install Qt
-        uses: jurplel/install-qt-action@v4
-        with:
-          aqtversion: "==3.1.*"
-          version: ${{ env.QT_VERSION }}
-          host: "linux"
-          target: "desktop"
-          arch: ${{ env.AQT_ARCH }}
-          modules: ${{ env.QT_MODULES }}
-      - name: Build KDE Framework
+      - name: Build Plugin
         run: |
           mkdir build
           cd build
-          git clone https://invent.kde.org/frameworks/extra-cmake-modules.git -b ${{ env.ECM_BRANCH }}
-          cd extra-cmake-modules
-          mkdir build && cd build && cmake .. && cmake --build . && sudo cmake --install .
-          cd ../../
-          git clone https://invent.kde.org/sdk/kdesrc-build.git
-          cd kdesrc-build
-          # env
-          export PATH=$QT_ROOT_DIR:`pwd`:$PATH
-          export QT_MAJOR_VERSION=${{ env.QT_MAJOR_VERSION }}
-          export QTDIR=$QT_ROOT_DIR
-          # solve dependencies
-          sudo apt build-dep wayland kcodecs karchive kguiaddons kdoctools knotifications kwindowsystem polkit-qt-1 kjobwidgets solid kio kparts ktexteditor -y
-          # build kf
-          kdesrc-build --initial-setup
-          kdesrc-build --metadata-only
-          kdesrc-build --pretend
-          # let build faster
-          sed -i "s/num-cores [0-9]\+/num-cores $(nproc)/" ~/.config/kdesrc-buildrc
-          kdesrc-build --no-stop-on-failure kate || echo "Kate Build Completed"
-          cd ..
-      - name: Build Plugin
-        run: |
-          cd build
           cmake .. \
             -DQT_MAJOR_VERSION=${{ env.QT_MAJOR_VERSION }} \
-            -DCMAKE_PREFIX_PATH="$HOME/kde/usr/lib/x86_64-linux-gnu/cmake/" \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build .
           cd ..
@@ -118,3 +71,8 @@ jobs:
           file: build/bin/kf${{ env.QT_MAJOR_VERSION }}/ktexteditor/text-highlight-plugin.so
           tag: ${{ github.ref }}
           overwrite: true
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v3
+      #   if: ${{ failure() }}
+      #   with:
+      #     limit-access-to-actor: false
