@@ -2,7 +2,7 @@
 
 This plugin is designed to make reading logs easier.
 
-![Text Highlight Plugin](docs/preview.webm "preview")
+![Text Highlight Plugin](docs/preview.gif "preview")
 
 # Build
 
