@@ -2,7 +2,7 @@
 
 This plugin is designed to make reading logs easier.
 
-![Text Highlight Plugin](docs/preview.gif "preview")
+![Text Highlight Plugin](docs/preview.webm "preview")
 
 # Build
 
@@ -26,7 +26,7 @@ Put this plugin to `your_kate_source_path/addons/`, and build kate.
 
 ## Installation
 
-Build it by yourself or download the release version from the [release page](https://github.com/flylai/kate_text_highlight_plugin/releases). and put `text-highlight-plugin.so` to `/usr/lib/qt6/plugins/kf6/ktexteditor/`.
+Build it by yourself and using `make install` / `cmake --install .` or download the release version from the [release page](https://github.com/flylai/kate_text_highlight_plugin/releases). and put `text-highlight-plugin.so` to `/usr/lib/qt6/plugins/kf6/ktexteditor/`.
 
 ## Activation
 
